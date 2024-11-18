@@ -26,15 +26,6 @@ typedef struct{
 
 ListaConectados lista;
 
-typedef struct {
-	int total_invitados;
-	int respuestas_recibidas;
-	int aceptados;
-	int socket_invitador;
-} Invitacion;
-
-Invitacion invitacion_actual;
-
 // Funcion para enviar un mensaje a todos los clientes conectados
 void enviar_a_todos(const char *mensaje) {
 	for (int i = 0; i < lista.num; i++) {
@@ -92,72 +83,6 @@ void obtener_lista_jugadores(char *respuesta) {
 	}
 }
 
-
-void enviar_invitaciones(int socket_invitador, const char *nombre_invitador) {
-	char mensaje[256];
-	sprintf(mensaje, "INVITACION/%s te ha invitado a jugar. ¿Aceptas? (si/n0)\n", nombre_invitador);
-	
-	invitacion_actual.total_invitados = lista.num - 1; // Excluye al invitador
-	invitacion_actual.respuestas_recibidas = 0;
-	invitacion_actual.aceptados = 0;
-	invitacion_actual.socket_invitador = socket_invitador;
-	for (int i = 0; i < lista.num; i++) {
-		if (lista.conectados[i].socket != socket_invitador) {
-			write(lista.conectados[i].socket, mensaje, strlen(mensaje));
-		}
-	}
-}
-void procesar_respuesta_invitacion(int socket_invitador, const char *resultado) {
-	invitacion_actual.respuestas_recibidas++;
-	
-	if (strcmp(resultado, "s") == 0) {
-		invitacion_actual.aceptados++;
-	}
-	
-	if (invitacion_actual.respuestas_recibidas == invitacion_actual.total_invitados) {
-		char mensaje_general[256];
-		char mensaje_invitador[256];
-		
-		// Mensaje para todos los jugadores
-		if (invitacion_actual.aceptados == invitacion_actual.total_invitados) {
-			sprintf(mensaje_general, "RESULTADO/¡Todos aceptaron! El juego puede empezar.\n");
-		} else {
-			sprintf(mensaje_general, "RESULTADO/No todos aceptaron. Decidan si desean jugar de todos modos.\n");
-		}
-		
-		// Mensaje exclusivo para el invitador
-		sprintf(
-				mensaje_invitador,
-				"RESUMEN/De los %d invitados, %d aceptaron y %d rechazaron.\n",
-				invitacion_actual.total_invitados,
-				invitacion_actual.aceptados,
-				invitacion_actual.total_invitados - invitacion_actual.aceptados
-				);
-		
-		// Informar al invitador especÃ­ficamente
-		printf("Enviando resumen al socket invitador: %d\n", invitacion_actual.socket_invitador);
-		printf("Mensaje: %s\n", mensaje_invitador);
-		if (write(invitacion_actual.socket_invitador, mensaje_invitador, strlen(mensaje_invitador)) < 0) {
-			perror("Error enviando mensaje al invitador");
-		}
-		
-		// Informar a todos los jugadores conectados
-		for (int i = 0; i < lista.num; i++) {
-			if (lista.conectados[i].socket == invitacion_actual.socket_invitador) {
-				write(lista.conectados[i].socket, mensaje_invitador, strlen(mensaje_invitador));
-			}
-			write(lista.conectados[i].socket, mensaje_general, strlen(mensaje_general));
-		}
-	}
-}
-
-
-
-int contador;
-
-//Estructura necesaria para acceso excluyente
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-
 void *AtenderCliente(void *socket)
 {
 	int sock_conn;
@@ -184,7 +109,6 @@ void *AtenderCliente(void *socket)
 	// ¡¡¡¡PROGRAMA REAL ELIMINADO POR FALLO EN AL BASE DE DATOS MYSQL!!!!
 	
 	// Simulacion de un nombre fijo para el jugador
-	
 	strcpy(nombre_jugador, "Jugador"); // Nombre fijo para pruebas
 	agregar_jugador(sock_conn, nombre_jugador);
 	
@@ -212,34 +136,18 @@ void *AtenderCliente(void *socket)
 			eliminar_jugador(sock_conn);
 			terminar=1;
 		} 
-		
 		else if (codigo ==1) //piden que le digan el nombre
 			consultar_nombre(id_usuario, buff2);
 		else if (codigo ==2)
 			consultar_mail(id_usuario, buff2);
 		else if (codigo ==3)
 			consultar_password(id_usuario, buff2);
-		else if (codigo == 4) 
-		{ // El codigo 4 sera usado para invitaciones
-			enviar_invitaciones(sock_conn, nombre_jugador);
-		} 
-		else if (codigo == 5) 
-		{ // El codigo 5 es para procesar respuesta de invitacion
-			char *resultado = strtok(NULL, "/");
-			procesar_respuesta_invitacion(sock_conn, resultado);
-		}
 		if (codigo !=0)
 		{
 			printf("Respuesta : %s\n", respuesta);
 			//enviamos la presuesta
 			write(sock_conn, respuesta, strlen(respuesta));
 			
-		}
-		if ((codigo ==1) ||(codigo ==2) || (codigo ==3)|| (codigo ==4)|| (codigo ==5))
-		{
-			pthread_mutex_lock( &mutex); //No me interrumpas ahora
-			contador = contador +1;
-			pthread_mutex_unlock( &mutex); //Ya puedes interrumpir
 		}
 	}
 	// se acabo el servicio para este cliente
@@ -274,7 +182,6 @@ int main(int argc, char *argv[])
 	if (listen(sock_listen, 2) < 0)
 		printf("Error en el Listen");
 	
-	contador =0;
 	int i;
 	int sockets[100];
 	pthread_t thread;
