@@ -1,2 +1,2 @@
-# GroupSO
-https://youtu.be/-h1MKvyl-l4
+VERSION FINAL DEL PROYECTO
+
